@@ -1,4 +1,5 @@
 import shutil
+import time
 from pathlib import Path
 from string import Formatter
 
@@ -104,13 +105,8 @@ def muse_copy_rename(file_path, tag, output_folder, fields_to_drop=None,
 def muse_process_direct(folder_configs, target_copy_folder, fields_to_drop=None,
                         default_include_subdirs=True, schema=DEFAULT_SCHEMA,
                         log=print, progress=None):
-    """Scans folders for audio files and copies/renames them into target_copy_folder.
+    start_time = time.perf_counter()  # <--- 2. Start benchmarking
 
-    :param folder_configs: list of folder paths (uses default_include_subdirs)
-                           OR dict {folder_path: include_subdirs_bool}.
-    :param log: callable(str) receiving status lines.
-    :param progress: optional callable(done, total) called after each file.
-    """
     if isinstance(folder_configs, dict):
         configs = {Path(p): flag for p, flag in folder_configs.items()}
     else:
@@ -118,7 +114,6 @@ def muse_process_direct(folder_configs, target_copy_folder, fields_to_drop=None,
 
     target = Path(target_copy_folder).resolve()
 
-    # Collect first so we can report progress
     files = []
     for folder, include_subdirs in configs.items():
         if not folder.is_dir():
@@ -129,14 +124,14 @@ def muse_process_direct(folder_configs, target_copy_folder, fields_to_drop=None,
             if not (f.is_file() and f.suffix.lower() in AUDIO_EXTENSIONS):
                 continue
             resolved = f.resolve()
-            if target in resolved.parents:  # don't re-copy our own output
+            if target in resolved.parents:
                 continue
             files.append(resolved)
 
     total = len(files)
     log(f"Found {total} audio file(s).")
     if progress:
-        progress(0, total)  # lets the UI switch from 'busy' to a real range
+        progress(0, total)
 
     copied = failed = 0
     for i, resolved in enumerate(files, 1):
@@ -150,4 +145,7 @@ def muse_process_direct(folder_configs, target_copy_folder, fields_to_drop=None,
         if progress:
             progress(i, total)
 
-    return {"total": total, "copied": copied, "failed": failed}
+    elapsed = time.perf_counter() - start_time
+    log(f"Finished in {elapsed:.2f} seconds.")
+
+    return {"total": total, "copied": copied, "failed": failed, "elapsed": elapsed}

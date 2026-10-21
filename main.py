@@ -1,4 +1,5 @@
 import sys
+from string import Formatter
 
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtWidgets import (
@@ -105,13 +106,14 @@ class MuseCopyApp(QMainWindow, Ui_MuseCopy):
 
     # --- log panel ---
     def toggle_log(self, visible):
-        self.logView.setVisible(visible)
+        self.logContainer.setVisible(visible)
         self.logButton.setText("Hide Log" if visible else "Show Log")
 
     # --- processing ---
     def start_processing(self):
         output_folder = self.outputEdit.text().strip()
         input_folders = self.input_folders()
+        schema = self.schemaEdit.text().strip() or DEFAULT_SCHEMA
 
         if not output_folder:
             QMessageBox.warning(self, "Muse Copy", "Please select an output folder.")
@@ -119,6 +121,34 @@ class MuseCopyApp(QMainWindow, Ui_MuseCopy):
         if not input_folders:
             QMessageBox.warning(self, "Muse Copy", "Please add at least one input folder.")
             return
+
+        # --- Pre-flight Schema Validation ---
+        try:
+            parsed_fields = [name for _, name, _, _ in Formatter().parse(schema) if name]
+
+            # Check for unsupported fields
+            invalid_fields = [f for f in parsed_fields if f not in SCHEMA_FIELDS]
+            if invalid_fields:
+                QMessageBox.warning(
+                    self, "Muse Copy",
+                    f"Invalid field(s) in schema: {', '.join(invalid_fields)}\n\n"
+                    f"Allowed fields are: {', '.join(SCHEMA_FIELDS)}"
+                )
+                self.schemaEdit.setFocus()
+                return
+
+            # Test formatting syntax with dummy values to catch syntax errors (e.g., unclosed brackets)
+            dummy_values = {f: "test" for f in SCHEMA_FIELDS}
+            schema.format(**dummy_values)
+
+        except Exception as e:
+            QMessageBox.warning(
+                self, "Muse Copy",
+                f"Invalid rename schema syntax:\n{e}"
+            )
+            self.schemaEdit.setFocus()
+            return
+        # ------------------------------------
 
         fields_to_drop = [
             name for name, check in (
@@ -138,7 +168,7 @@ class MuseCopyApp(QMainWindow, Ui_MuseCopy):
             folder_configs=input_folders,
             target_copy_folder=output_folder,
             fields_to_drop=fields_to_drop,
-            schema=self.schemaEdit.text().strip() or DEFAULT_SCHEMA,
+            schema=schema,
         )
         self.worker.log.connect(self.logView.appendPlainText)
         self.worker.progress.connect(self.update_progress)
@@ -156,21 +186,39 @@ class MuseCopyApp(QMainWindow, Ui_MuseCopy):
         self.progressBar.setValue(0)
         self.progressBar.setFormat("Ready")
 
+    def set_finished_progress(self, text="Done"):
+        self.progressBar.setRange(0, 1)
+        self.progressBar.setValue(1)
+        self.progressBar.setFormat(text)
+
     def on_done(self, result):
         self.set_running(False)
-        total, copied, failed = result["total"], result["copied"], result["failed"]
+        total, copied, failed, elapsed = result["total"], result["copied"], result["failed"], result["elapsed"]
+
+        # Format time string cleanly
+        if elapsed < 60:
+            time_str = f"{elapsed:.1f} seconds"
+        else:
+            mins = int(elapsed // 60)
+            secs = elapsed % 60
+            time_str = f"{mins}m {secs:.1f}s"
+
+        self.logView.appendPlainText(f"\nProcessing finished in {time_str}.")
 
         if total == 0:
-            self.reset_progress()
+            self.reset_progress()  # Shows "Ready" because no files were found
             QMessageBox.information(self, "Muse Copy", "No audio files were found in the selected folders.")
-        elif failed:
-            self.logButton.setChecked(True)
-            QMessageBox.warning(
-                self, "Muse Copy",
-                f"Copied {copied} of {total} file(s).\n{failed} failed - see the log for details.",
-            )
         else:
-            QMessageBox.information(self, "Muse Copy", f"Done! Copied {copied} file(s).")
+            if failed:
+                self.logButton.setChecked(True)
+                self.set_finished_progress('Finished with errors')
+                QMessageBox.warning(
+                    self, "Muse Copy",
+                    f"Copied {copied} of {total} file(s) in {time_str}.\n{failed} failed - see the log for details.",
+                )
+            else:
+                self.set_finished_progress("Done")
+                QMessageBox.information(self, "Muse Copy", f"Done! Copied {copied} file(s) in {time_str}.")
 
     def on_failed(self, message):
         self.set_running(False)

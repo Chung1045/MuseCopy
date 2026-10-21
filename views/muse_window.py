@@ -1,3 +1,4 @@
+from PyQt5.QtCore import QStandardPaths
 from PyQt5.QtWidgets import (
     QCheckBox,
     QHBoxLayout,
@@ -14,6 +15,8 @@ from PyQt5.QtWidgets import (
     QAbstractItemView,
 )
 
+# Get default user desktop path
+default_output_path = QStandardPaths.writableLocation(QStandardPaths.DesktopLocation) + "/musecopy-output"
 
 class Ui_MuseCopy(object):
     """Hand-written UI (layout-based, no absolute geometry)."""
@@ -27,20 +30,23 @@ class Ui_MuseCopy(object):
         root = QVBoxLayout(central)
 
         # --- Input folders ---
-        self.addInputButton = QToolButton()
-        self.addInputButton.setText("+")
         self.removeInputButton = QToolButton()
         self.removeInputButton.setText("−")
+        self.removeInputButton.setToolTip("Remove input folder")
+        self.addInputButton = QToolButton()
+        self.addInputButton.setText("+")
+        self.addInputButton.setToolTip("Add input folder")
 
         row = QHBoxLayout()
         row.addWidget(QLabel("Input folders:"))
         row.addStretch(1)
-        row.addWidget(self.addInputButton)
         row.addWidget(self.removeInputButton)
+        row.addWidget(self.addInputButton)
         root.addLayout(row)
 
         self.inputTable = QTableWidget(0, 2)
         self.inputTable.setHorizontalHeaderLabels(["Folder", "Include subfolders"])
+        self.inputTable.setShowGrid(True)
         self.inputTable.verticalHeader().hide()
         self.inputTable.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.inputTable.setSelectionMode(QAbstractItemView.ExtendedSelection)
@@ -53,9 +59,10 @@ class Ui_MuseCopy(object):
 
         # --- Output folder ---
         self.outputEdit = QLineEdit()
-        self.outputEdit.setPlaceholderText("Where processed files are copied to")
+        self.outputEdit.setText(default_output_path)
         self.outputBrowseButton = QToolButton()
         self.outputBrowseButton.setText("…")
+        self.outputBrowseButton.setToolTip("Change output folder")
 
         row = QHBoxLayout()
         row.addWidget(QLabel("Output folder:"))
@@ -106,10 +113,24 @@ class Ui_MuseCopy(object):
         row.addWidget(self.startButton)
         root.addLayout(row)
 
+        # --- Log Section Container ---
+        self.logContainer = QWidget()
+        log_container_layout = QVBoxLayout(self.logContainer)
+        log_container_layout.setContentsMargins(0, 0, 0, 0)  # Removes extra padding
+
+        self.log_label = QLabel("Process Log")
+        log_container_layout.addWidget(self.log_label)
+
         self.logView = QPlainTextEdit()
         self.logView.setReadOnly(True)
-        self.logView.setVisible(False)  # hidden until the user shows it
-        root.addWidget(self.logView, 2)
+        self.logView.setPlaceholderText("No process log yet")
+        log_container_layout.addWidget(self.logView, 2)
+
+        # Start hidden by default
+        self.logContainer.setVisible(False)
+
+        # Add the whole container to the root layout once
+        root.addWidget(self.logContainer)
 
         central.setStyleSheet("""
             QLineEdit, QPlainTextEdit {
