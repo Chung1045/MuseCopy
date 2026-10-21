@@ -1,0 +1,3 @@
+TinyTag
+PyQt5
+mutagen
