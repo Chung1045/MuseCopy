@@ -2,3 +2,6 @@
 .venv
 .DS_Store
 *.pyc
+/build
+/dist
+main.spec

@@ -2,11 +2,13 @@ import sys
 
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtWidgets import (
-    QApplication, QCheckBox, QFileDialog, QHBoxLayout, QMainWindow, QMessageBox, QMenu,
+    QAction, QApplication, QCheckBox, QFileDialog, QHBoxLayout, QMainWindow, QMessageBox, QMenu,
     QTableWidgetItem, QWidget,
 )
 
+from app_info import APP_NAME, VERSION
 from service.muse_process import DEFAULT_SCHEMA, SCHEMA_FIELDS, muse_process_direct
+from views.dialogues.about_dialogue import show_about_dialogue
 from views.muse_window import Ui_MuseCopy
 
 
@@ -33,7 +35,14 @@ class MuseCopyApp(QMainWindow, Ui_MuseCopy):
     def __init__(self):
         super().__init__()
         self.setupUi(self)
+        self.setWindowTitle(APP_NAME)
         self.worker = None
+
+        # Help > About (on macOS Qt moves it into the application menu automatically)
+        about_action = QAction(f"About {APP_NAME}", self)
+        about_action.setMenuRole(QAction.AboutRole)
+        about_action.triggered.connect(lambda checked=False: show_about_dialogue(self))
+        self.menuBar().addMenu("Help").addAction(about_action)
 
         # Schema placeholder menu
         menu = QMenu(self.schemaButton)
@@ -47,6 +56,7 @@ class MuseCopyApp(QMainWindow, Ui_MuseCopy):
         self.outputBrowseButton.clicked.connect(self.browse_output_folder)
         self.addInputButton.clicked.connect(self.add_input_folder)
         self.removeInputButton.clicked.connect(self.remove_input_folder)
+        self.aboutButton.clicked.connect(lambda checked=False: show_about_dialogue(self))
         self.startButton.clicked.connect(self.start_processing)
         self.logButton.toggled.connect(self.toggle_log)
 
@@ -182,6 +192,8 @@ class MuseCopyApp(QMainWindow, Ui_MuseCopy):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    app.setApplicationName(APP_NAME)
+    app.setApplicationVersion(VERSION)
     window = MuseCopyApp()
     window.show()
     sys.exit(app.exec_())

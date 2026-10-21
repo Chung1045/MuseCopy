@@ -90,6 +90,7 @@ class Ui_MuseCopy(object):
         root.addLayout(row)
 
         # --- Start / progress / log ---
+        self.aboutButton = QPushButton("About")
         self.startButton = QPushButton("Start")
         self.logButton = QPushButton("Show Log")
         self.logButton.setCheckable(True)  # checked = log visible
@@ -99,6 +100,7 @@ class Ui_MuseCopy(object):
         self.progressBar.setRange(0, 1)
         self.progressBar.setValue(0)
         self.progressBar.setFormat("Ready")
+        row.addWidget(self.aboutButton)
         row.addWidget(self.progressBar, 1)
         row.addWidget(self.logButton)
         row.addWidget(self.startButton)
