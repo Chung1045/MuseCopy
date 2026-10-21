@@ -1,6 +1,6 @@
 # Muse Copy
 
-A desktop utility built with Python and PyQt5 that scans your music folders, copies the audio files into a single output folder, renames them from their metadata, and optionally strips unwanted tags. Your original files are never modified.
+A desktop music copier utility built with Python and PyQt5 that scans your music folders, copies the audio files into a single output folder, renames them from their metadata, and optionally strips unwanted tags, intended to work with various digital media player. Your original files are never modified.
 
 ---
 
