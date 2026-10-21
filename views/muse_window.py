@@ -73,11 +73,18 @@ class Ui_MuseCopy(object):
         # --- Rename schema ---
         self.schemaEdit = QLineEdit()
         self.schemaEdit.setPlaceholderText("{title} - {artist}")
+        self.schemaEdit.setEnabled(False)
         self.schemaButton = QToolButton()  # menu is attached in main.py
         self.schemaButton.setText("Insert")
+        self.schemaButton.setEnabled(False)
+
+        self.enableRenameCheck = QCheckBox("Batch rename songs")
+        root.addWidget(self.enableRenameCheck)
 
         row = QHBoxLayout()
-        row.addWidget(QLabel("Rename schema:"))
+        self.renameSchemaLabel = QLabel("Rename schema:")
+        self.renameSchemaLabel.setEnabled(False)
+        row.addWidget(self.renameSchemaLabel)
         row.addWidget(self.schemaEdit, 1)
         row.addWidget(self.schemaButton)
         root.addLayout(row)

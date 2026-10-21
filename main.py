@@ -60,6 +60,7 @@ class MuseCopyApp(QMainWindow, Ui_MuseCopy):
         self.removeInputButton.clicked.connect(self.remove_input_folder)
         self.aboutButton.clicked.connect(lambda checked=False: show_about_dialogue(self))
         self.startButton.clicked.connect(self.start_processing)
+        self.enableRenameCheck.clicked.connect(self.toggle_batch_rename)
         self.logButton.toggled.connect(self.toggle_log)
 
     # --- folder handling ---
@@ -110,10 +111,16 @@ class MuseCopyApp(QMainWindow, Ui_MuseCopy):
         self.logContainer.setVisible(visible)
         self.logButton.setText("Hide Log" if visible else "Show Log")
 
+    def toggle_batch_rename(self, enabled):
+        self.renameSchemaLabel.setEnabled(enabled)
+        self.schemaEdit.setEnabled(enabled)
+        self.schemaButton.setEnabled(enabled)
+
     # --- processing ---
     def start_processing(self):
         output_folder = self.outputEdit.text().strip()
         input_folders = self.input_folders()
+        rename_enabled = self.enableRenameCheck.isChecked()
         schema = self.schemaEdit.text().strip() or DEFAULT_SCHEMA
 
         if not output_folder:
@@ -123,33 +130,31 @@ class MuseCopyApp(QMainWindow, Ui_MuseCopy):
             QMessageBox.warning(self, "Muse Copy", "Please add at least one input folder.")
             return
 
-        # --- Pre-flight Schema Validation ---
-        try:
-            parsed_fields = [name for _, name, _, _ in Formatter().parse(schema) if name]
+        # --- Pre-flight Schema Validation (only when renaming is on) ---
+        if rename_enabled:
+            try:
+                parsed_fields = [name for _, name, _, _ in Formatter().parse(schema) if name]
 
-            # Check for unsupported fields
-            invalid_fields = [f for f in parsed_fields if f not in SCHEMA_FIELDS]
-            if invalid_fields:
+                invalid_fields = [f for f in parsed_fields if f not in SCHEMA_FIELDS]
+                if invalid_fields:
+                    QMessageBox.warning(
+                        self, "Muse Copy",
+                        f"Invalid field(s) in schema: {', '.join(invalid_fields)}\n\n"
+                        f"Allowed fields are: {', '.join(SCHEMA_FIELDS)}"
+                    )
+                    self.schemaEdit.setFocus()
+                    return
+
+                # Catch syntax errors (e.g., unclosed brackets)
+                schema.format(**{f: "test" for f in SCHEMA_FIELDS})
+
+            except Exception as e:
                 QMessageBox.warning(
                     self, "Muse Copy",
-                    f"Invalid field(s) in schema: {', '.join(invalid_fields)}\n\n"
-                    f"Allowed fields are: {', '.join(SCHEMA_FIELDS)}"
+                    f"Invalid rename schema syntax:\n{e}"
                 )
                 self.schemaEdit.setFocus()
                 return
-
-            # Test formatting syntax with dummy values to catch syntax errors (e.g., unclosed brackets)
-            dummy_values = {f: "test" for f in SCHEMA_FIELDS}
-            schema.format(**dummy_values)
-
-        except Exception as e:
-            QMessageBox.warning(
-                self, "Muse Copy",
-                f"Invalid rename schema syntax:\n{e}"
-            )
-            self.schemaEdit.setFocus()
-            return
-        # ------------------------------------
 
         fields_to_drop = [
             name for name, check in (
@@ -160,8 +165,8 @@ class MuseCopyApp(QMainWindow, Ui_MuseCopy):
         ]
 
         self.logView.clear()
-        self.logButton.setChecked(True)  # show the log while working
-        self.progressBar.setRange(0, 0)  # busy animation until the file count is known
+        self.logButton.setChecked(True)
+        self.progressBar.setRange(0, 0)
         self.progressBar.setFormat("%v / %m")
         self.set_running(True)
 
@@ -170,6 +175,7 @@ class MuseCopyApp(QMainWindow, Ui_MuseCopy):
             target_copy_folder=output_folder,
             fields_to_drop=fields_to_drop,
             schema=schema,
+            rename_enabled=rename_enabled,
         )
         self.worker.log.connect(self.logView.appendPlainText)
         self.worker.progress.connect(self.update_progress)

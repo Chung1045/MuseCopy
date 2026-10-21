@@ -81,13 +81,17 @@ def strip_metadata(file_path, fields_to_drop, log=print):
 
 
 def muse_copy_rename(file_path, tag, output_folder, fields_to_drop=None,
-                     schema=DEFAULT_SCHEMA, log=print):
-    """Copies an audio file, renames it, and optionally drops metadata fields."""
+                     schema=DEFAULT_SCHEMA, rename_enabled=True, log=print):
+    """Copies an audio file, renames it if enabled, and optionally drops metadata fields."""
     src_path = Path(file_path)
     dest_dir = Path(output_folder)
     dest_dir.mkdir(parents=True, exist_ok=True)
 
-    new_name = build_filename(tag, schema, src_path.suffix, src_path.name)
+    # Use custom schema if batch renaming is enabled; otherwise retain original filename
+    if rename_enabled:
+        new_name = build_filename(tag, schema, src_path.suffix, src_path.name)
+    else:
+        new_name = src_path.name
 
     dest_file_path = dest_dir / new_name
     counter = 1
@@ -104,8 +108,8 @@ def muse_copy_rename(file_path, tag, output_folder, fields_to_drop=None,
 
 def muse_process_direct(folder_configs, target_copy_folder, fields_to_drop=None,
                         default_include_subdirs=True, schema=DEFAULT_SCHEMA,
-                        log=print, progress=None):
-    start_time = time.perf_counter()  # <--- 2. Start benchmarking
+                        rename_enabled=True, log=print, progress=None):
+    start_time = time.perf_counter()
 
     if isinstance(folder_configs, dict):
         configs = {Path(p): flag for p, flag in folder_configs.items()}
@@ -137,7 +141,10 @@ def muse_process_direct(folder_configs, target_copy_folder, fields_to_drop=None,
     for i, resolved in enumerate(files, 1):
         try:
             tag = fetch_metadata(str(resolved))
-            muse_copy_rename(resolved, tag, target, fields_to_drop, schema, log)
+            muse_copy_rename(
+                resolved, tag, target, fields_to_drop,
+                schema=schema, rename_enabled=rename_enabled, log=log
+            )
             copied += 1
         except Exception as e:
             failed += 1
