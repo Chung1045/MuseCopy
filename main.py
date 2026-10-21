@@ -2,6 +2,7 @@ import sys
 from string import Formatter
 
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
+from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import (
     QAction, QApplication, QCheckBox, QFileDialog, QHBoxLayout, QMainWindow, QMessageBox, QMenu,
     QTableWidgetItem, QWidget,
@@ -242,6 +243,11 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
     app.setApplicationVersion(VERSION)
+
+    # Apply Segoe UI only on Windows
+    if sys.platform == "win32":
+        app.setFont(QFont("Segoe UI", 10))
+
     window = MuseCopyApp()
     window.show()
     sys.exit(app.exec_())
