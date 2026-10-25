@@ -1,8 +1,9 @@
+import subprocess
 from datetime import date
 from importlib import metadata
+from pathlib import Path
 
 APP_NAME = "Muse Copy"
-VERSION = "1.0"
 AUTHOR = "Chung1045"
 START_YEAR = 2026
 REPOSITORY_LINK = "https://github.com/Chung1045/MuseCopy"
@@ -14,6 +15,24 @@ DEPENDENCIES = [
     ("Mutagen", "mutagen"),
 ]
 
+def get_version():
+    try:
+        from _version import VERSION as baked
+        return baked.lstrip("v")
+    except ImportError:
+        pass
+
+    try:
+        return subprocess.check_output(
+            ["git", "describe", "--tags", "--always", "--dirty"],
+            cwd=Path(__file__).parent,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        ).strip().lstrip("v")
+    except Exception:
+        return "dev"
+
+VERSION = get_version()
 
 def copyright_years():
     current = date.today().year

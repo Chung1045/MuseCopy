@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import (
 )
 
 from app_info import APP_NAME, VERSION
-from service.muse_process import DEFAULT_SCHEMA, SCHEMA_FIELDS, muse_process_direct
+from service.muse_process import DEFAULT_SCHEMA, SCHEMA_FIELDS, muse_process_direct,SCHEMA_TAGS
 from views.dialogues.about_dialogue import show_about_dialogue
 from views.muse_window import Ui_MuseCopy
 
@@ -48,8 +48,13 @@ class MuseCopyApp(QMainWindow, Ui_MuseCopy):
 
         # Schema placeholder menu
         menu = QMenu(self.schemaButton)
-        for field in SCHEMA_FIELDS:
-            menu.addAction(field.capitalize(), lambda checked=False, f=field: self.schemaEdit.insert(f"{{{f}}}"))
+        for tag in SCHEMA_TAGS:
+            display_name = tag["displayName"]
+            field_name = tag["fieldName"]
+            menu.addAction(
+                display_name,
+                lambda checked=False, f=field_name: self.schemaEdit.insert(f"{{{f}}}")
+            )
         self.schemaButton.setMenu(menu)
         self.schemaButton.setPopupMode(self.schemaButton.InstantPopup)
         self.schemaEdit.setText(DEFAULT_SCHEMA)
@@ -137,15 +142,16 @@ class MuseCopyApp(QMainWindow, Ui_MuseCopy):
 
                 invalid_fields = [f for f in parsed_fields if f not in SCHEMA_FIELDS]
                 if invalid_fields:
+                    allowed_list = [f"• {{{tag['fieldName']}}} ({tag['displayName']})" for tag in SCHEMA_TAGS]
                     QMessageBox.warning(
                         self, "Muse Copy",
-                        f"Invalid field(s) in schema: {', '.join(invalid_fields)}\n\n"
-                        f"Allowed fields are: {', '.join(SCHEMA_FIELDS)}"
+                        f"Invalid field(s) found: {', '.join(f'{{{f}}}' for f in invalid_fields)}\n\n"
+                        f"Allowed schema tags:\n" + "\n".join(allowed_list)
                     )
                     self.schemaEdit.setFocus()
                     return
 
-                # Catch syntax errors (e.g., unclosed brackets)
+                # Catch syntax errors (e.g., unclosed brackets or invalid format expressions)
                 schema.format(**{f: "test" for f in SCHEMA_FIELDS})
 
             except Exception as e:

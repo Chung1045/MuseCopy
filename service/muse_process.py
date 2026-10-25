@@ -10,8 +10,42 @@ from service.metadata_fetcher import fetch_metadata
 
 AUDIO_EXTENSIONS = {'.mp3', '.m4a', '.mp4', '.wav', '.flac', '.aac', '.ogg', '.wma'}
 DEFAULT_SCHEMA = "{title} - {artist}"
-SCHEMA_FIELDS = ["title", "artist", "album", "track", "year"]
+SCHEMA_TAGS = [
+    {
+        "displayName": "Title",
+        "fieldName": "title",
+    },
+    {
+        "displayName": "Artist",
+        "fieldName": "artist",
+    },
+    {
+        "displayName": "Album",
+        "fieldName": "album",
+    },
+    {
+        "displayName": "Track",
+        "fieldName": "track",
+    },
+    {
+        "displayName": "Year",
+        "fieldName": "year",
+    },
+    {
+        "displayName": "Bit Depth",
+        "fieldName": "bitdepth",
+    },
+    {
+        "displayName": "Bitrate",
+        "fieldName": "bitrate",
+    },
+    {
+        "displayName": "Sample Rate",
+        "fieldName": "samplerate",
+    },
+]
 
+SCHEMA_FIELDS = [item["fieldName"] for item in SCHEMA_TAGS]
 
 def sanitize_filename(name):
     """Removes or replaces characters that are illegal in file paths."""
@@ -23,19 +57,20 @@ def sanitize_filename(name):
 
 
 def build_filename(tag, schema, suffix, fallback_name):
-    """Builds a new file name from a schema like '{title} - {artist}'.
-
-    If the schema is invalid, or any field it uses is missing from the
-    file's tags, the original file name is kept.
-    """
     schema = (schema or DEFAULT_SCHEMA).strip()
     values = {field: getattr(tag, field, None) for field in SCHEMA_FIELDS}
 
     try:
         used = [name for _, name, _, _ in Formatter().parse(schema) if name]
-        if not used or any(not values.get(name) for name in used):
+        if not used:
             return fallback_name
-        text = schema.format(**{k: sanitize_filename(str(v)) for k, v in values.items() if v})
+
+        format_data = {}
+        for name in used:
+            val = values.get(name)
+            format_data[name] = sanitize_filename(str(val)) if val is not None else ""
+
+        text = schema.format(**format_data)
     except (KeyError, IndexError, ValueError):
         return fallback_name
 
