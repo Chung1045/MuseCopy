@@ -1,0 +1,56 @@
+name: Build and Package
+run-name: Build and Release ${{ github.ref_name }}
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  Build-Release:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v6
+
+      - name: Install dependencies and PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+
+      - name: Build with PyInstaller
+        run: pyinstaller MuseCopy.spec
+
+      # --- 1. WINDOWS PACKAGING (.ZIP) ---
+      - name: Package for Windows (ZIP)
+        if: matrix.os == 'windows-latest'
+        run: |
+          Compress-Archive -Path dist/MuseCopy -DestinationPath dist/MuseCopy-${{ github.ref_name }}-windows.zip
+
+      # --- 2. MACOS PACKAGING (.DMG) ---
+      - name: Package for macOS (DMG)
+        if: matrix.os == 'macos-latest'
+        run: |
+          mkdir -p dist/dmg
+          cp -r dist/MuseCopy.app dist/dmg/
+          ln -s /Applications dist/dmg/Applications
+          hdiutil create -volname "MuseCopy" -srcfolder dist/dmg -ov -format UDZO dist/MuseCopy-${{ github.ref_name }}-macos.dmg
+
+      # --- 3. LINUX PACKAGING (TAR.GZ) ---
+      - name: Package for Linux (Tarball)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          tar -czvf dist/MuseCopy-${{ github.ref_name }}-linux.tar.gz -C dist MuseCopy
+
+      # --- 4. UPLOAD TO GITHUB RELEASE ---
+      - name: Upload binaries to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.zip
+            dist/*.dmg
+            dist/*.tar.gz
