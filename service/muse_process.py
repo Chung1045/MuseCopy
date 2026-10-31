@@ -116,10 +116,13 @@ def strip_metadata(file_path, fields_to_drop, log=print):
 
 
 def muse_copy_rename(file_path, tag, output_folder, fields_to_drop=None,
-                     schema=DEFAULT_SCHEMA, rename_enabled=True, log=print):
+                     schema=DEFAULT_SCHEMA, rename_enabled=True,
+                     relative_dir=None, log=print):
     """Copies an audio file, renames it if enabled, and optionally drops metadata fields."""
     src_path = Path(file_path)
     dest_dir = Path(output_folder)
+    if relative_dir:
+        dest_dir = dest_dir / relative_dir
     dest_dir.mkdir(parents=True, exist_ok=True)
 
     # Use custom schema if batch renaming is enabled; otherwise retain original filename
@@ -135,10 +138,16 @@ def muse_copy_rename(file_path, tag, output_folder, fields_to_drop=None,
         counter += 1
 
     shutil.copy2(src_path, dest_file_path)
-    log(f"Copied: {src_path.name} -> {dest_file_path.name}")
+    log(f"Copied: {src_path.name} -> {dest_file_path.relative_to(output_folder)}")
 
     if fields_to_drop:
         strip_metadata(dest_file_path, fields_to_drop, log)
+
+def _parse_flags(value):
+    """Accepts a bool (include_subdirs) or an (include_subdirs, preserve) pair."""
+    if isinstance(value, (tuple, list)):
+        return bool(value[0]), bool(value[1])
+    return bool(value), False
 
 
 def muse_process_direct(folder_configs, target_copy_folder, fields_to_drop=None,
@@ -147,14 +156,14 @@ def muse_process_direct(folder_configs, target_copy_folder, fields_to_drop=None,
     start_time = time.perf_counter()
 
     if isinstance(folder_configs, dict):
-        configs = {Path(p): flag for p, flag in folder_configs.items()}
+        configs = {Path(p): _parse_flags(v) for p, v in folder_configs.items()}
     else:
-        configs = {Path(p): default_include_subdirs for p in folder_configs}
+        configs = {Path(p): (default_include_subdirs, False) for p in folder_configs}
 
     target = Path(target_copy_folder).resolve()
 
-    files = []
-    for folder, include_subdirs in configs.items():
+    files = []  # (resolved source path, relative subfolder or None)
+    for folder, (include_subdirs, preserve) in configs.items():
         if not folder.is_dir():
             log(f"Skipping (not a folder): {folder}")
             continue
@@ -165,7 +174,8 @@ def muse_process_direct(folder_configs, target_copy_folder, fields_to_drop=None,
             resolved = f.resolve()
             if target in resolved.parents:
                 continue
-            files.append(resolved)
+            rel_dir = (Path(folder.name) / f.relative_to(folder).parent) if preserve else None
+            files.append((resolved, rel_dir))
 
     total = len(files)
     log(f"Found {total} audio file(s).")
@@ -173,12 +183,13 @@ def muse_process_direct(folder_configs, target_copy_folder, fields_to_drop=None,
         progress(0, total)
 
     copied = failed = 0
-    for i, resolved in enumerate(files, 1):
+    for i, (resolved, rel_dir) in enumerate(files, 1):
         try:
             tag = fetch_metadata(str(resolved))
             muse_copy_rename(
                 resolved, tag, target, fields_to_drop,
-                schema=schema, rename_enabled=rename_enabled, log=log
+                schema=schema, rename_enabled=rename_enabled,
+                relative_dir=rel_dir, log=log
             )
             copied += 1
         except Exception as e:

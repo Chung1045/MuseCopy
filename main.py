@@ -84,13 +84,26 @@ class MuseCopyApp(QMainWindow, Ui_MuseCopy):
             path_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
             self.inputTable.setItem(row, 0, path_item)
 
-            self.inputTable.setCellWidget(row, 1, self.make_subfolder_checkbox())
+            include_widget = self.make_checkbox(True)
+            preserve_widget = self.make_checkbox(False)
+            self.inputTable.setCellWidget(row, 1, include_widget)
+            self.inputTable.setCellWidget(row, 2, preserve_widget)
+
+            include_box = include_widget.findChild(QCheckBox)
+            preserve_box = preserve_widget.findChild(QCheckBox)
+
+            def sync_preserve(checked, p=preserve_box):
+                p.setEnabled(checked)
+                if not checked:
+                    p.setChecked(False)
+
+            include_box.toggled.connect(sync_preserve)
 
     @staticmethod
-    def make_subfolder_checkbox():
-        """A centered checkbox for the 'Subfolders' column (checked = include subfolders)."""
+    def make_checkbox(checked=False):
+        """A centered checkbox for a table column."""
         box = QCheckBox()
-        box.setChecked(True)
+        box.setChecked(checked)
         container = QWidget()
         layout = QHBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -104,10 +117,13 @@ class MuseCopyApp(QMainWindow, Ui_MuseCopy):
             self.inputTable.removeRow(row)
 
     def input_folders(self):
-        """Returns {folder_path: include_subfolders}."""
+        """Returns {folder_path: (include_subfolders, preserve_structure)}."""
         table = self.inputTable
         return {
-            table.item(row, 0).text(): table.cellWidget(row, 1).findChild(QCheckBox).isChecked()
+            table.item(row, 0).text(): (
+                table.cellWidget(row, 1).findChild(QCheckBox).isChecked(),
+                table.cellWidget(row, 2).findChild(QCheckBox).isChecked(),
+            )
             for row in range(table.rowCount())
         }
 

@@ -44,8 +44,9 @@ class Ui_MuseCopy(object):
         row.addWidget(self.addInputButton)
         root.addLayout(row)
 
-        self.inputTable = QTableWidget(0, 2)
-        self.inputTable.setHorizontalHeaderLabels(["Folder", "Include subfolders"])
+        self.inputTable = QTableWidget(0, 3)
+        self.inputTable.setHorizontalHeaderLabels(["Folder", "Include subfolders", "Preserve folder structure"])
+
         self.inputTable.setShowGrid(True)
         self.inputTable.verticalHeader().hide()
         self.inputTable.setSelectionBehavior(QAbstractItemView.SelectRows)
@@ -55,6 +56,7 @@ class Ui_MuseCopy(object):
         header = self.inputTable.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.Stretch)
         header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
         root.addWidget(self.inputTable, 1)
 
         # --- Output folder ---
