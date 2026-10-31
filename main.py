@@ -4,13 +4,14 @@ from string import Formatter
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import (
-    QAction, QApplication, QCheckBox, QFileDialog, QHBoxLayout, QMainWindow, QMessageBox, QMenu,
+    QAction, QApplication, QCheckBox, QFileDialog, QHBoxLayout, QMainWindow, QMenu,
     QTableWidgetItem, QWidget,
 )
 
 from app_info import APP_NAME, VERSION
-from service.muse_process import DEFAULT_SCHEMA, SCHEMA_FIELDS, muse_process_direct,SCHEMA_TAGS
+from service.muse_process import DEFAULT_SCHEMA, SCHEMA_FIELDS, muse_process_direct, SCHEMA_TAGS
 from views.dialogues.about_dialogue import show_about_dialogue
+from views.dialogues.message_dialogue import show_warning, show_error, show_info, show_finished
 from views.muse_window import Ui_MuseCopy
 
 
@@ -145,10 +146,10 @@ class MuseCopyApp(QMainWindow, Ui_MuseCopy):
         schema = self.schemaEdit.text().strip() or DEFAULT_SCHEMA
 
         if not output_folder:
-            QMessageBox.warning(self, "Muse Copy", "Please select an output folder.")
+            show_warning(self, "No output folder", "Please select an output folder.")
             return
         if not input_folders:
-            QMessageBox.warning(self, "Muse Copy", "Please add at least one input folder.")
+            show_warning(self, "No input folders", "Please add at least one input folder.")
             return
 
         # --- Pre-flight Schema Validation (only when renaming is on) ---
@@ -159,10 +160,10 @@ class MuseCopyApp(QMainWindow, Ui_MuseCopy):
                 invalid_fields = [f for f in parsed_fields if f not in SCHEMA_FIELDS]
                 if invalid_fields:
                     allowed_list = [f"• {{{tag['fieldName']}}} ({tag['displayName']})" for tag in SCHEMA_TAGS]
-                    QMessageBox.warning(
-                        self, "Muse Copy",
-                        f"Invalid field(s) found: {', '.join(f'{{{f}}}' for f in invalid_fields)}\n\n"
-                        f"Allowed schema tags:\n" + "\n".join(allowed_list)
+                    show_warning(
+                        self,
+                        f"Invalid field(s): {', '.join(f'{{{f}}}' for f in invalid_fields)}",
+                        "Allowed schema tags:\n" + "\n".join(allowed_list),
                     )
                     self.schemaEdit.setFocus()
                     return
@@ -171,10 +172,7 @@ class MuseCopyApp(QMainWindow, Ui_MuseCopy):
                 schema.format(**{f: "test" for f in SCHEMA_FIELDS})
 
             except Exception as e:
-                QMessageBox.warning(
-                    self, "Muse Copy",
-                    f"Invalid rename schema syntax:\n{e}"
-                )
+                show_warning(self, "Invalid rename schema", str(e))
                 self.schemaEdit.setFocus()
                 return
 
@@ -192,6 +190,7 @@ class MuseCopyApp(QMainWindow, Ui_MuseCopy):
         self.progressBar.setFormat("%v / %m")
         self.set_running(True)
 
+        self.output_folder = output_folder
         self.worker = ProcessWorker(
             folder_configs=input_folders,
             target_copy_folder=output_folder,
@@ -224,7 +223,6 @@ class MuseCopyApp(QMainWindow, Ui_MuseCopy):
         self.set_running(False)
         total, copied, failed, elapsed = result["total"], result["copied"], result["failed"], result["elapsed"]
 
-        # Format time string cleanly
         if elapsed < 60:
             time_str = f"{elapsed:.1f} seconds"
         else:
@@ -235,25 +233,34 @@ class MuseCopyApp(QMainWindow, Ui_MuseCopy):
         self.logView.appendPlainText(f"\nProcessing finished in {time_str}.")
 
         if total == 0:
-            self.reset_progress()  # Shows "Ready" because no files were found
-            QMessageBox.information(self, "Muse Copy", "No audio files were found in the selected folders.")
+            self.reset_progress()
+            show_info(self, "No audio files found",
+                      "No audio files were found in the selected folders.")
+        elif failed:
+            self.logButton.setChecked(True)
+            self.set_finished_progress("Finished with errors")
+            show_finished(
+                self,
+                f"Copied {copied} of {total} file(s)",
+                f"{failed} failed in {time_str}. See the log for details.\n\n"
+                f"Output saved at:\n{self.output_folder}",
+                self.output_folder,
+                warning=True,
+            )
         else:
-            if failed:
-                self.logButton.setChecked(True)
-                self.set_finished_progress('Finished with errors')
-                QMessageBox.warning(
-                    self, "Muse Copy",
-                    f"Copied {copied} of {total} file(s) in {time_str}.\n{failed} failed - see the log for details.",
-                )
-            else:
-                self.set_finished_progress("Done")
-                QMessageBox.information(self, "Muse Copy", f"Done! Copied {copied} file(s) in {time_str}.")
+            self.set_finished_progress("Done")
+            show_finished(
+                self,
+                f"Done! Copied {copied} file(s)",
+                f"Finished in {time_str}.\n\nOutput saved at:\n{self.output_folder}",
+                self.output_folder,
+            )
 
     def on_failed(self, message):
         self.set_running(False)
         self.reset_progress()
         self.logView.appendPlainText(f"Error: {message}")
-        QMessageBox.critical(self, "Muse Copy", f"Processing stopped:\n{message}")
+        show_error(self, "Processing stopped", message)
 
     def set_running(self, running):
         self.startButton.setEnabled(not running)
@@ -261,7 +268,7 @@ class MuseCopyApp(QMainWindow, Ui_MuseCopy):
 
     def closeEvent(self, event):
         if self.worker and self.worker.isRunning():
-            QMessageBox.information(self, "Muse Copy", "Still processing - please wait for it to finish.")
+            show_info(self, "Still processing", "Please wait for it to finish.")
             event.ignore()
         else:
             event.accept()
