@@ -6,6 +6,8 @@ import sys
 from PyInstaller.utils.hooks import copy_metadata
 
 pkg_metadata = copy_metadata("PyQt5") + copy_metadata("tinytag") + copy_metadata("mutagen")
+ICON_ICO = os.path.join("res", "icon.ico")
+ICON_ICNS = os.path.join("res", "icon.icns")
 
 def _detect_version():
     v = os.environ.get("APP_VERSION", "")
@@ -77,6 +79,7 @@ exe = EXE(
     [],
     exclude_binaries=True,
     name='MuseCopy',
+    icon=ICON_ICO if sys.platform == "win32" else None,
     version=version_info,
     debug=False,
     bootloader_ignore_signals=False,
@@ -101,7 +104,7 @@ coll = COLLECT(
 app = BUNDLE(
     coll,
     name='MuseCopy.app',
-    icon=None,
+    icon=ICON_ICNS,
     bundle_identifier='com.chung1045.musecopy',
     version=app_version,
     info_plist={
